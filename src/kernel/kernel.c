@@ -5,7 +5,7 @@
 #include "../timers/date.h"
 #include "../errors/error.h"
 #include "../memory/memory.h"
-#include "../wifi/wifi.h"
+
 #include "../io/io.h"
 #include "../mpop/mpop.h"
 #include "../vfs/filesys.h"
@@ -21,7 +21,7 @@
 #include "../commands/help.h"
 #include "../commands/tui.h"
 #include "../commands/meow.h"
-#include "../commands/wifi.h"
+
 #include "../commands/settings.h"
 #include "../commands/ping.h"
 #include "../commands/text.h"
@@ -124,9 +124,6 @@ void kernel_main() {
     if (!register_command("brainfuck", "Brainfuck language", brainfuck_command)) {
         system_error("Command registration", "0x113");        
     }
-    if (!register_command("wifi", "WiFi management commands", wifi_command)) {
-        system_error("Command registration", "0x114");
-    }
     if (!register_command("settings", "Enter settings", settings_command)) {
         system_error("Command registration", "0x127");
     }
@@ -177,25 +174,26 @@ void kernel_main() {
 
     // Display welcome banner
     terminal_setcolor(VGA_COLOR_CYAN);
-    print("          .  .           \n");
-    print("          dOO  OOb       \n");
-    print("         dOP'..'YOb      \n");
-    print("         OOboOOodOO      \n");
-    print("       ..YOP.  .YOP..    \n");
-    print("     dOOOOOObOOdOOOOOOb  \n");
-    print("    dOP' dOYO()OPOb 'YOb \n");
-    print("        O   OOOO   O     \n");
-    print("    YOb. YOdOOOObOP .dOP \n");
-    print("     YOOOOOOP  YOOOOOOP  \n");
-    print("       ''''      ''''    \n");
+    print("\t\t\t\t\t\t\t          .  .           \n");
+    print("\t\t\t\t\t\t\t          dOO  OOb       \n");
+    print("\t\t\t\t\t\t\t         dOP'..'YOb      \n");
+    print("\t\t\t\t\t\t\t         OOboOOodOO      \n");
+    print("\t\t\t\t\t\t\t       ..YOP.  .YOP..    \n");
+    print("\t\t\t\t\t\t\t     dOOOOOObOOdOOOOOOb  \n");
+    print("\t\t\t\t\t\t\t    dOP' dOYO()OPOb 'YOb \n");
+    print("\t\t\t\t\t\t\t        O   OOOO   O     \n");
+    print("\t\t\t\t\t\t\t    YOb. YOdOOOObOP .dOP \n");
+    print("\t\t\t\t\t\t\t     YOOOOOOP  YOOOOOOP  \n");
+    print("\t\t\t\t\t\t\t       ''''      ''''    \n");
     terminal_setcolor(VGA_COLOR_WHITE);
-    print("\n    Welcome to Radium OS\n");
-    print("    Type 'help' for available commands\n");
-    print("    Type 'radifetch' for system information\n");
-    print("    Type 'network status' to check network card\n\n");
+    
+    info("    Welcome to Radium OS\n", __FILE__);
+    info("    Type 'help' for available commands", __FILE__);
+    info("    Type 'radifetch' for system information", __FILE__);
+    info("    Type 'network status' to check network card", __FILE__);
     
 
-keyboard_read_input();
+    keyboard_read_input();
 
     // Enable interrupts and start the system
     enable_interrupts();
