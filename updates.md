@@ -13,14 +13,34 @@ This document tracks the progress, updates, and changes made to RadiumOS. As a h
 
 ---
 
+## 🚀 Version 0.0.2 - Current Update September 1 2025
+*finished*
+
+### 🔄 Currently Done
+- `src/keyboard/keyboard.h` Updated : Keyboard interrupts 
+- `src/keyboard/keyboard.h` Updated : ArrowKey Cursor (left/right)
+- `src/mpop/mpop` Updated : Uses keyboard interrupts now
+- `src/login/login.h` Removed Due to No Need
+- `src/vfs/*` Removed Due to No Need
+- `src/commands/text.h` Added text editor (NO FILESYSTEM JUST INTERACTIVE MPOP LANGUAGE)
+### 🐛 Known Issues Being Addressed
+---
+```
+Issue: Duplicate Text
+Trigger: More than one of text inside shell
+Status: Under Investigation
+Priority: Low
+```
+
 ## 🚀 Version 0.0.1 - Current Update August 31st 2025
 *Finished*
 
 ### 🔄 Currently Done
-- `src/commands/wifi` Removed Due to No Need
+- `src/commands/wifi.h` Removed Due to No Need
 - `src/wifi/wifi.h`   Removed Due to No Need
 - `src/kernel/kernel.c`(Edited) Removed Wifi Headers/Wifi Command
 - `updates.md` Created
+
 
 ### 🐛 Known Issues Being Addressed
 ```
@@ -37,3 +57,4 @@ Suspected Cause: Interrupt disabling may break system state
 Status: Debugging in progress
 Priority: High
 ```
+
