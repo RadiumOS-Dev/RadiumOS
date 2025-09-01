@@ -5,7 +5,6 @@
 #include "../errors/error.h" // For error handling functions
 #include "../io/io.h" // For I/O operations
 #include "../scheduler/task.h"
-#include "../login/login.h"
 #include <stdint.h> 
 #define MAX_HISTORY 10 // Maximum number of commands to store in history
 #define COMMAND_BUFFER_SIZE 256
@@ -21,6 +20,10 @@ size_t command_count = 0; // Number of registered commands
 
 // Shift state variable
 bool shift_active = false;
+
+// Add cursor position tracking
+static size_t cursor_position = 0; // Position of cursor in command buffer
+
 void display_prompt() {
     print("<");
     print("thorne");
@@ -67,11 +70,13 @@ void add_to_history(const char* command) {
     }
     current_history_index = -1; // Reset history browsing
 }
-// Function to clear current line and redraw command
-void redraw_command_line(const char* command, size_t* command_length) {
+
+// Alternative simpler approach using capitalized character highlighting
+void update_cursor_display_simple(const char* command_buffer, size_t command_length) {
     // Move cursor to beginning of line
     terminal_putchar('\r');
-
+    
+    // Clear the line
     for (int i = 0; i < 79; i++) {
         terminal_putchar(' ');
     }
@@ -82,15 +87,74 @@ void redraw_command_line(const char* command, size_t* command_length) {
     // Redraw prompt
     display_prompt();
     
-    // Print the new command
-    for (size_t i = 0; i < strlen(command); i++) {
-        terminal_putchar(command[i]);
+    // Print command with capitalized cursor character
+    for (size_t i = 0; i < command_length; i++) {
+        if (i == cursor_position) {
+            // Capitalize the cursor character
+            char cursor_char = command_buffer[i];
+            if (cursor_char >= 'a' && cursor_char <= 'z') {
+                terminal_putchar(cursor_char - 'a' + 'A'); // Convert to uppercase
+            } else if (cursor_char >= 'A' && cursor_char <= 'Z') {
+                terminal_putchar(cursor_char - 'A' + 'a'); // Convert to lowercase if already uppercase
+            } else {
+                // For non-letters, show the character normally
+                terminal_putchar(cursor_char);
+            }
+        } else {
+            terminal_putchar(command_buffer[i]);
+        }
     }
     
-    *command_length = strlen(command);
+    // If cursor is at end of command, show capitalized underscore
+    if (cursor_position >= command_length) {
+        terminal_putchar('_'); // Show underscore at end
+    }
 }
 
+// Alternative simpler approach using background color highlighting
+void update_cursor_display(const char* command_buffer, size_t command_length) {
+    // Move cursor to beginning of line
+    terminal_putchar('\r');
+    
+    // Clear the line
+    for (int i = 0; i < 79; i++) {
+        terminal_putchar(' ');
+    }
+    
+    // Move cursor back to beginning of line
+    terminal_putchar('\r');
+    
+    // Redraw prompt
+    display_prompt();
+    
+    // Print command with highlighted cursor character
+    for (size_t i = 0; i < command_length; i++) {
+        if (i == cursor_position) {
+            // Highlight the cursor character with background color
+             // Black text on light gray background
+            terminal_setcolor(VGA_COLOR_CYAN);
+            terminal_putchar(command_buffer[i]);
+            terminal_setcolor(VGA_COLOR_WHITE);
+             // Reset to normal colors
+        } else {
+            terminal_putchar(command_buffer[i]);
+        }
+    }
+    
+    // If cursor is at end of command, show highlighted space/underscore
+    if (cursor_position >= command_length) {
+         // Black text on light gray background
+        terminal_putchar('_');
+         // Reset to normal colors
+    }
+}
 
+// Function to clear current line and redraw command
+void redraw_command_line(const char* command, size_t* command_length) {
+    *command_length = strlen(command);
+    cursor_position = *command_length; // Reset cursor to end
+    update_cursor_display_simple(command, *command_length);
+}
 
 // Function to check if a key is pressed
 bool is_key_pressed() {
@@ -99,7 +163,7 @@ bool is_key_pressed() {
 
 // Function to wait for a key press
 void keyboard_await() {
-    print("Press any key to continue...\n"); // Prompt the user
+    //print("Press any key to continue...\n"); // Prompt the user
     while (!is_key_pressed()) {
         // Wait until a key is pressed
     }
@@ -136,12 +200,14 @@ void execute_command(const char* command) {
     print("\n! unknown command !\n");
 }
 
-// Keyboard map for character translation
+
+// Keyboard map for character translation (fixed space key)
 const char keyboard_map[128] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0, 0,
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 0, 0, 'a', 's',
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c',
-    'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' ', 0, 0, 0, 0, 0, 0,
+    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0, 0,      // 0-15
+    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 0, 0, 'a', 's', // 16-31
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c',  // 32-46
+    'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' ', 0, 0, 0, 0, 0, 0,          // 47-62
+    //                                   ^ Index 57 (0x39) = space key
 };
 
 // Shifted keyboard map for uppercase characters
@@ -152,6 +218,42 @@ const char shifted_keyboard_map[128] = {
     'V', 'B', 'N', 'M', '<', '>', '?', 0, 0, 0, ' ', 0, 0, 0, 0, 0, 0,
 };
 
+// Function to insert character at cursor position
+void insert_char_at_cursor(char* command_buffer, size_t* command_length, char c) {
+    if (*command_length >= COMMAND_BUFFER_SIZE - 1) return; // Buffer full
+    
+    // Shift characters to the right from cursor position
+    for (size_t i = *command_length; i > cursor_position; i--) {
+        command_buffer[i] = command_buffer[i - 1];
+    }
+    
+    // Insert the new character
+    command_buffer[cursor_position] = c;
+    (*command_length)++;
+    command_buffer[*command_length] = '\0';
+    
+    cursor_position++; // Move cursor forward
+    
+    // Redraw the line with updated cursor
+    update_cursor_display_simple(command_buffer, *command_length);
+}
+
+// Function to delete character at cursor position (backspace)
+void delete_char_at_cursor(char* command_buffer, size_t* command_length) {
+    if (cursor_position == 0 || *command_length == 0) return; // Nothing to delete
+    
+    // Shift characters to the left from cursor position
+    for (size_t i = cursor_position - 1; i < *command_length - 1; i++) {
+        command_buffer[i] = command_buffer[i + 1];
+    }
+    
+    (*command_length)--;
+    cursor_position--;
+    command_buffer[*command_length] = '\0';
+    
+    // Redraw the line with updated cursor
+    update_cursor_display_simple(command_buffer, *command_length);
+}
 
 // Function to handle arrow key sequences
 bool handle_arrow_keys(uint8_t scan_code, char* command_buffer, size_t* command_length) {
@@ -192,6 +294,20 @@ bool handle_arrow_keys(uint8_t scan_code, char* command_buffer, size_t* command_
                     command_buffer[0] = '\0';
                 }
                 redraw_command_line(command_buffer, command_length);
+            }
+            return true; // Consumed the key
+        }
+        else if (scan_code == 0x4B) { // Left arrow
+            if (cursor_position > 0) {
+                cursor_position--;
+                update_cursor_display_simple(command_buffer, *command_length);
+            }
+            return true; // Consumed the key
+        }
+        else if (scan_code == 0x4D) { // Right arrow
+            if (cursor_position < *command_length) {
+                cursor_position++;
+                update_cursor_display_simple(command_buffer, *command_length);
             }
             return true; // Consumed the key
         }
@@ -236,19 +352,14 @@ void keyboard_handler() {
                     command_buffer[command_length] = '\0'; // Null-terminate the command
                     execute_command(command_buffer); // Execute the command
                     command_length = 0; // Reset command length
+                    cursor_position = 0; // Reset cursor position
                     command_buffer[0] = '\0'; // Clear buffer
                     current_history_index = -1; // Reset history browsing
                     terminal_putchar('\n'); // Move to the next line
                     display_prompt(); // Display the prompt again
                 } else if (scan_code == 0x0E) { // Backspace key
-                    if (command_length > 0) {
-                        command_length--; // Decrease command length
-                        command_buffer[command_length] = '\0'; // Update buffer
-                        current_history_index = -1; // Reset history browsing when editing
-                        terminal_putchar('\b'); // Move cursor back
-                        terminal_putchar(' '); // Clear the character
-                        terminal_putchar('\b'); // Move cursor back again
-                    }
+                    delete_char_at_cursor(command_buffer, &command_length);
+                    current_history_index = -1; // Reset history browsing when editing
                 } else {
                     // Get the base character
                     char base_char = keyboard_map[scan_code];
@@ -275,10 +386,8 @@ void keyboard_handler() {
                         
                         // Add character to buffer if valid
                         if (c != 0 && command_length < COMMAND_BUFFER_SIZE - 1) {
-                            command_buffer[command_length++] = c;
-                            command_buffer[command_length] = '\0';
+                            insert_char_at_cursor(command_buffer, &command_length, c);
                             current_history_index = -1; // Reset history browsing when typing
-                            terminal_putchar(c);
                         }
                     }
                 }
@@ -286,7 +395,6 @@ void keyboard_handler() {
         }
     }
 }
-
 
 // Function to read keyboard input
 void keyboard_read_input(uint32_t id) {
@@ -325,7 +433,6 @@ void keyboard_input_secure(char* userinput) {
                             userinput[COMMAND_BUFFER_SIZE - 1] = '\0'; // Ensure null-termination
                             command_length = 0; // Reset command length
                             terminal_putchar('\n'); // Move to the next line
-                            secure_clear(command_buffer, sizeof(command_buffer)); // Clear command buffer
                             return; // Exit the function after getting input
                         } else if (scan_code == 0x0E) { // Backspace key
                             if (command_length > 0) {
@@ -345,55 +452,98 @@ void keyboard_input_secure(char* userinput) {
     }
 }
 
-void keyboard_input(char* userinput) {
+int keyboard_input(char* userinput) {
     static char command_buffer[COMMAND_BUFFER_SIZE];
+    static bool ctrl_pressed = false;
     size_t command_length = 0;
-
+    cursor_position = 0;
+    
+    // Clear buffer
+    for(int i = 0; i < COMMAND_BUFFER_SIZE; i++) {
+        command_buffer[i] = 0;
+    }
+    
     while (true) {
         if (is_key_pressed()) {
-            uint8_t scan_code = port_byte_in(0x60); // Read from keyboard port
+            uint8_t scan_code = port_byte_in(0x60);
+            
+            // Handle arrow keys first
+            if (handle_arrow_keys(scan_code, command_buffer, &command_length)) {
+                continue;
+            }
+            
+            // Handle key releases
+            if (scan_code & 0x80) {
+                uint8_t key_code = scan_code & 0x7F;
+                if (scan_code == 0xAA || scan_code == 0xB6) {
+                    shift_active = false;
+                } else if (key_code == 0x1D) {
+                    ctrl_pressed = false;
+                }
+                continue;
+            }
+            
+            // Handle key presses
+            if (scan_code == 0x2A || scan_code == 0x36) {
+                shift_active = true;
+                continue;
+            }
+            
+            if (scan_code == 0x1D) {
+                ctrl_pressed = true;
+                continue;
+            }
+            
+            if (scan_code == 0x2E && ctrl_pressed) {
+                terminal_putchar('^');
+                terminal_putchar('C');
+                terminal_putchar('\n');
+                ctrl_pressed = false;
+                return -1;
+            }
+            
+            if (scan_code == 0x1C) { // Enter
+                command_buffer[command_length] = '\0';
+                strncpy(userinput, command_buffer, COMMAND_BUFFER_SIZE);
+                userinput[COMMAND_BUFFER_SIZE - 1] = '\0';
+                terminal_putchar('\n');
+                return 0;
+            }
+            
+            if (scan_code == 0x0E) { // Backspace
+                if (command_length > 0) {
+                    command_length--;
+                    command_buffer[command_length] = '\0';
+                    terminal_putchar('\b');
+                    terminal_putchar(' ');
+                    terminal_putchar('\b');
+                }
+                continue;
+            }
+            
+            // Handle regular characters
             if (scan_code < sizeof(keyboard_map)) {
-                if (scan_code & 0x80) { // Check if it's a break code
-                    // Handle key release
-                    if (scan_code == 0xAA || scan_code == 0xB6) { // Left Shift or Right Shift release
-                        shift_active = false; // Deactivate shift state
-                    }
+                char c;
+                if (shift_active) {
+                    c = shifted_keyboard_map[scan_code];
                 } else {
-                    // Check for shift key press
-                    if (scan_code == 0x2A || scan_code == 0x36) { // Left Shift or Right Shift press
-                        shift_active = true; // Activate shift state
-                    } else {
-                        char c;
-                                                if (shift_active) {
-                            c = shifted_keyboard_map[scan_code]; // Get character from shifted keyboard map
-                        } else {
-                            c = keyboard_map[scan_code]; // Get character from keyboard map
-                        }
-
-                        if (scan_code == 0x1C) { // Enter key
-                            command_buffer[command_length] = '\0'; // Null-terminate the command
-                            strncpy(userinput, command_buffer, COMMAND_BUFFER_SIZE); // Copy to userinput
-                            userinput[COMMAND_BUFFER_SIZE - 1] = '\0'; // Ensure null-termination
-                            command_length = 0; // Reset command length
-                            terminal_putchar('\n'); // Move to the next line
-                            return; // Exit the function after getting input
-                        } else if (scan_code == 0x0E) { // Backspace key
-                            if (command_length > 0) {
-                                command_length--; // Decrease command length
-                                terminal_putchar('\b'); // Move cursor back
-                                terminal_putchar(' '); // Clear the character
-                                terminal_putchar('\b'); // Move cursor back again
-                            }
-                        } else if (c != 0 && command_length < COMMAND_BUFFER_SIZE - 1) { // Check buffer size and valid character
-                            command_buffer[command_length++] = c; // Add character to command buffer
-                            terminal_putchar(c); // Print the character
-                        }
-                    }
+                    c = keyboard_map[scan_code];
+                }
+                
+                if (c != 0 && command_length < COMMAND_BUFFER_SIZE - 1) {
+                    // ADD THE CHARACTER TO THE BUFFER - this was missing!
+                    command_buffer[command_length] = c;
+                    command_length++;
+                    terminal_putchar(c);
                 }
             }
         }
     }
+    
+    return 0;
 }
+
+
 
 uint8_t keyboard_wait_for_key(bool dump_scancode) {
     while (true) {
@@ -421,31 +571,10 @@ uint8_t keyboard_wait_for_key(bool dump_scancode) {
     }
 }
 
-uint8_t scancode_keyboard_interrupt() {
-    static bool ctrl_pressed = false; // Track if Ctrl is currently pressed
-    static bool c_pressed = false; // Track if C is currently pressed
-    if (is_key_pressed()) {
-        uint8_t scan_code = port_byte_in(0x60); // Read from keyboard port
-        if (scan_code == 0x1D) { // Ctrl key pressed
-            ctrl_pressed = true; // Set Ctrl as pressed
-        } else if (scan_code == 0x1D | 0x80) { // Ctrl key released
-            ctrl_pressed = false; // Reset Ctrl as released
-        } else if (scan_code == 0x2E) { // C key pressed
-            if (ctrl_pressed) {
-                c_pressed = true; // Set C as pressed while Ctrl is held
-            }
-        } else if (scan_code == 0x2E | 0x80) { // C key released
-            if (c_pressed && ctrl_pressed) {
-                c_pressed = false; // Reset C pressed state
-                return 1; // Ctrl+C detected
-            }
-        }
-    }
-    return 0; // Ctrl+C not detected
-}
-
 uint8_t keyboard_key() {
     keyboard_await();
     print("\n");
     return port_byte_in(0x60); 
 }
+
+                

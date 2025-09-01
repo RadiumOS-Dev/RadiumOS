@@ -5,13 +5,13 @@
 #include "../timers/date.h"
 #include "../errors/error.h"
 #include "../memory/memory.h"
-
+#include "../sound/sound.h"
 #include "../io/io.h"
 #include "../mpop/mpop.h"
-#include "../vfs/filesys.h"
-#include "../chemicalCompounds/chem.h"
+
+
+
 #include "../icmp/icmp.h"
-#include "../login/login.h"
 #include "../commands/mempop.h"
 #include "../commands/brainz.h"
 #include "../commands/clear.h"
@@ -21,68 +21,55 @@
 #include "../commands/help.h"
 #include "../commands/tui.h"
 #include "../commands/meow.h"
-
+#include "../commands/text.h"
 #include "../commands/settings.h"
 #include "../commands/ping.h"
-#include "../commands/text.h"
+
 #include "../commands/radifetch.h"
 #include "../cpu/cpu.h"
 
 void kernel_main() {
-    // Initialize core systems first
     terminal_initialize();
     memory_init();
-    //terminal_clear();
     debug_memory_status();
-    // Initialize CPU information system
     initialize_cpu_info();
     init_physical_memory();
-    
-    // Initialize Real Time Clock
+
+    speaker_init();
+    speaker_play_error_sound();
+
     if (!rtc_init()) {
         handle_error("\nRTC - Initialize Failed\n", "kernel");
     } else {
         print("RTC - Initialized.☢ \n");
     }
     
-    // Initialize Global Descriptor Table
     if (!setup_gdt()) {
         handle_error("\nGDT - Initialize Failed\n", "kernel");
     } else {
         print("GDT - Initialized.\n");
     }
     
-    // Initialize Interrupt Descriptor Table
     if (!setup_interrupts()) {
         handle_error("\nINTERRUPTS - Initialize Failed\n", "kernel");
     } else {
         print("INTERRUPTS - Initialized.\n");
     }
     
-    // Initialize Programmable Interval Timer
     if (!setup_pit(1000)) {
         handle_error("\nPIT - Initialize Failed\n", "kernel");
     } else {
         print("PIT - Initialized.\n");
     }
     
-    // Initialize Task Scheduler
     if (!setup_tasks()) {
         handle_error("TASKS - Initialize Failed\n", "kernel");
     } else {
         print("TASKS - Initialized.\n");
     }
     
-    // Initialize filesystem
-    if (filesys_init() != 0) {
-        handle_error("FILESYSTEM - Initialize Failed\n", "kernel");
-    } else {
-        print("FILESYSTEM - Initialized.\n");
-    }
-    
 
     
-    // Register all commands
     print("Registering commands...\n");
     
     if (!register_command("help", "Displays this message", help_command)) {
@@ -127,11 +114,8 @@ void kernel_main() {
     if (!register_command("settings", "Enter settings", settings_command)) {
         system_error("Command registration", "0x127");
     }
-    if (!register_command("text", "Enter text editor", text)) {
+    if (!register_command("ping", "Pings server", text)) {
         system_error("Command registration", "0x128");
-    }
-    if (!register_command("chem", "Enter chemical compound lookup", chem_command)) {
-        system_error("Command registration", "0x129");
     }
     if (!register_command("radifetch", "System info lookup", radifetch_command)) {
         system_error("Command registration", "0x130");
@@ -142,24 +126,21 @@ void kernel_main() {
     if (!register_command("netdiag", "Network Dialog", netdiag_command)) {
         system_error("Command registration", "0x132");
     }
+    if (!register_command("textspace", "MPOP text editor", textspace_command)) {
+        system_error("Command registration", "0x134");
+    }
 
-    
     print("Commands registered successfully.\n");
 
-    // Create system tasks
     print("Creating system tasks...\n");
-
-    
     
     print("System tasks created successfully.\n");
     
-    // Initialize radifetch system
     if (radifetch_init() != 0) {
         handle_error("RADIFETCH - Initialize Failed\n", "kernel");
     } else {
         print("RADIFETCH - Initialized.\n");
     }
-        // Initialize RTL8139 network card
         if (!rtl8139_init()) {
         handle_error("RTL8139 - Initialize Failed\n", "kernel");
     } else {
@@ -172,7 +153,6 @@ void kernel_main() {
     print("\n");
     terminal_clear();
 
-    // Display welcome banner
     terminal_setcolor(VGA_COLOR_CYAN);
     print("\t\t\t\t\t\t\t          .  .           \n");
     print("\t\t\t\t\t\t\t          dOO  OOb       \n");
@@ -187,15 +167,14 @@ void kernel_main() {
     print("\t\t\t\t\t\t\t       ''''      ''''    \n");
     terminal_setcolor(VGA_COLOR_WHITE);
     
-    info("    Welcome to Radium OS\n", __FILE__);
+    info("    Welcome to Radium OS", __FILE__);
     info("    Type 'help' for available commands", __FILE__);
     info("    Type 'radifetch' for system information", __FILE__);
     info("    Type 'network status' to check network card", __FILE__);
     
+    
+    keyboard_read_input(0);
 
-    keyboard_read_input();
-
-    // Enable interrupts and start the system
     enable_interrupts();
 
 }

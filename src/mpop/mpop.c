@@ -918,7 +918,9 @@ void mpop_command(int argc, char* argv[]) {
     
     while (true) {
         printr("mpop> ");
-        keyboard_input(input);
+        if (keyboard_input(input)) {
+            return;
+        }
         
         if (strcmp(input, "exit") == 0) {
             break;

@@ -794,3 +794,7 @@ void debug_memory_status() {
         warn("8KB allocation: FAILED", __FILE__);
     }
 }
+
+int abs(int x) {
+    return (x < 0) ? -x : x;
+}

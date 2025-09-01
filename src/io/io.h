@@ -12,7 +12,7 @@ uint16_t inw(uint16_t port);
 void outl(uint16_t port, uint32_t value);
 uint32_t inl(uint16_t port);
 uint8_t port_byte_in(uint16_t port);
-
+void port_byte_out(uint16_t port, uint8_t data);
 // PCI Configuration Space Access Functions
 uint32_t pci_read_config_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
 uint16_t pci_read_config_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);

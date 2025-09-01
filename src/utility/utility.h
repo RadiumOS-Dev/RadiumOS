@@ -96,4 +96,5 @@ void warn(const char* message, const char* file);
 void info(const char* message, const char* file);
 void error(const char* message, const char* file);
 void debug_memory_status();
+int abs(int x);
 #endif // UTILITY_H
