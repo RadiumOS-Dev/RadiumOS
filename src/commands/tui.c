@@ -81,6 +81,5 @@ void tui(int argc, char* argv[]) {
                 if (m[s].action) m[s].action(); // Call the action
                 break;
         }
-        if (scancode_keyboard_interrupt()) return;
     }
 }
